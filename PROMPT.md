@@ -1,4 +1,4 @@
-# Build Prompt: "ShareForecast" — A Live Share-Forecasting Web App
+# Build Prompt: "ShareForecast" — A Live Share-Forecasting Website
 
 > Copy everything inside this file (or just the **PROMPT** section below) and hand it
 > to an AI coding tool (Claude Code, Cursor, v0, Bolt, etc.) or a developer.
@@ -8,9 +8,10 @@
 
 ## PROMPT
 
-Build a production-quality web application called **ShareForecast** that lets users
-track stocks, build watchlists with alerts, and view AI-generated price forecasts that
-combine **mathematical/statistical modeling** with **current worldwide news analysis**.
+Build a production-quality **website** (runs in the browser — not a mobile app) called
+**ShareForecast** that lets users track stocks, build watchlists with alerts, and view
+AI-generated price forecasts that combine **mathematical/statistical modeling** with
+**current worldwide news analysis**.
 
 ### Tech stack
 - **Framework:** Next.js (App Router) with TypeScript and React.
@@ -21,16 +22,18 @@ combine **mathematical/statistical modeling** with **current worldwide news anal
 
 ### Market data source
 - **Use Yahoo Finance as the only data source**, via the **`yahoo-finance2`** npm package (the Node.js equivalent of Python's `yfinance`). **No API key, no signup, no rate-limit dashboard.** Do not integrate Finnhub, Alpha Vantage, or any other provider.
-- It covers both **US and European** markets (e.g. `AAPL`, `BMW.DE`, `AIR.PA`, `VOD.L`) and provides quotes, historical candles, company info, and news — everything this app needs.
+- It has **broad global coverage** — US, UK, most of Europe, Canada, Australia, and major Asian exchanges (Tokyo, Hong Kong, etc.), plus ETFs, indices, crypto and forex (e.g. `AAPL`, `BMW.DE`, `AIR.PA`, `VOD.L`, `7203.T`, `0700.HK`, `BTC-USD`). It does **not** cover literally every small/local exchange, so handle "symbol not found" gracefully with a helpful message.
+- Provides quotes, historical candles, company info, and news — everything this website needs.
 - All Yahoo calls must run **server-side** (Next.js API routes / server actions); the `yahoo-finance2` package is Node-only and shouldn't run in the browser.
 - **Quotes are delayed ~15 minutes — this is fine and expected.** Forecasts target a 7-day horizon, so intraday precision doesn't matter.
 - **"Live" chart data:** Poll the server quote endpoint on a modest interval (e.g. every 30–60s) and update the chart as new data arrives. Show a "last updated" timestamp, a "~15 min delayed" badge, and a live/paused toggle. Degrade gracefully if a request fails (keep last good data, show a notice).
 
 ### Core features
 
-**1. Search & ticker pages**
-- Search bar to look up any stock by symbol or company name.
-- A detail page per ticker showing: live price, daily change (% and absolute), an interactive historical chart (1D / 1W / 1M / 1Y / 5Y ranges), and key stats (volume, market cap, 52-week high/low if available).
+**1. Smart search & ticker pages**
+- A **typeahead search bar** that looks up stocks by symbol *or* company name. As the user types, query Yahoo Finance's search/autocomplete endpoint (available via `yahoo-finance2`'s `search()`) and show a **live dropdown of matching results** — each with company name, symbol, and exchange/region.
+- Make it **forgiving of mistakes**: partial and misspelled input should still surface the right company (e.g. "appl" → Apple `AAPL`, "teslla" → Tesla `TSLA`). The user picks from the suggestions rather than needing the exact ticker. Debounce requests and show a loading state.
+- A detail page per ticker showing: latest price, daily change (% and absolute), an interactive historical chart (1D / 1W / 1M / 1Y / 5Y ranges), and key stats (volume, market cap, 52-week high/low if available).
 
 **2. Watchlists**
 - Users can add/remove tickers to a personal watchlist.
@@ -73,7 +76,7 @@ Generate a forward-looking forecast for a selected ticker by **combining two sig
 ### Suggested build order
 1. Project scaffold (Next.js + Tailwind + shadcn/ui) and `.env.example`.
 2. Yahoo Finance data client (server-side, via `yahoo-finance2`) with caching.
-3. Ticker search + detail page with chart (US + European symbols).
+3. Smart typeahead search (fuzzy, dropdown suggestions) + detail page with chart (global symbols).
 4. Watchlists (localStorage) + live sparklines.
 5. Alerts (set, persist, evaluate on the polling loop, notify).
 6. Statistical 7-day forecast layer (math + confidence bands on chart).
