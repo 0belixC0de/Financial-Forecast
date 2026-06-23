@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { getQuote, hasApiKey } from "../lib/api";
+import { getQuote } from "../lib/api";
 import { navigate, useWatchlist } from "../lib/store";
 import type { Quote } from "../lib/types";
 import { formatChange, formatPercent, formatPrice, formatTime } from "../lib/format";
@@ -13,13 +13,13 @@ export function Watchlist() {
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
-    if (items.length === 0 || !hasApiKey()) return;
+    if (items.length === 0) return;
     setLoading(true);
     const next: Record<string, Quote> = {};
-    // Sequential to stay within the free tier's per-minute limit.
+    // Sequential to be gentle on the data proxy.
     for (const it of items) {
       try {
-        next[`${it.symbol}|${it.micCode}`] = await getQuote(it.symbol, it.micCode);
+        next[`${it.symbol}|${it.micCode}`] = await getQuote(it.symbol);
       } catch {
         /* skip this one */
       }

@@ -22,11 +22,9 @@ const RANGES: { key: Range; label: string }[] = [
 
 export function PriceChart({
   symbol,
-  micCode,
   currency,
 }: {
   symbol: string;
-  micCode: string;
   currency: string;
 }) {
   const [range, setRange] = useState<Range>("1mo");
@@ -38,14 +36,14 @@ export function PriceChart({
     let cancelled = false;
     setLoading(true);
     setError(null);
-    getHistory(symbol, range, micCode)
+    getHistory(symbol, range)
       .then((c) => !cancelled && setCandles(c))
       .catch((e) => !cancelled && setError(e?.message || "Failed to load chart."))
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
     };
-  }, [symbol, micCode, range]);
+  }, [symbol, range]);
 
   const data = useMemo(
     () =>

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { getApiKey } from "./api";
 
 const WATCHLIST_KEY = "sf.watchlist";
 const ALERTS_KEY = "sf.alerts";
@@ -112,21 +111,6 @@ export function useAlerts() {
   }, []);
 
   return { alerts, add, remove, markTriggered };
-}
-
-export function useApiKey() {
-  const [key, setKey] = useState<string>("");
-  useEffect(() => {
-    const load = () => setKey(getApiKey());
-    load();
-    window.addEventListener("sf-apikey", load);
-    window.addEventListener("storage", load);
-    return () => {
-      window.removeEventListener("sf-apikey", load);
-      window.removeEventListener("storage", load);
-    };
-  }, []);
-  return key;
 }
 
 export function useTheme() {

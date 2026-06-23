@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { getQuote, hasApiKey } from "../lib/api";
+import { getQuote } from "../lib/api";
 import { useAlerts } from "../lib/store";
 import { formatPrice } from "../lib/format";
 
@@ -26,7 +26,6 @@ export function AlertWatcher() {
     let cancelled = false;
 
     async function check() {
-      if (!hasApiKey()) return;
       const pending = alertsRef.current.filter((a) => !a.triggeredAt);
       if (pending.length === 0) return;
       // De-dupe instruments to limit API calls.
@@ -36,7 +35,7 @@ export function AlertWatcher() {
         if (seen.has(k)) continue;
         seen.add(k);
         try {
-          const q = await getQuote(a.symbol, a.micCode);
+          const q = await getQuote(a.symbol);
           if (cancelled) return;
           for (const al of pending.filter((x) => x.symbol === a.symbol && x.micCode === a.micCode)) {
             const hit =

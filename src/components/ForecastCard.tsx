@@ -23,11 +23,9 @@ const SENTIMENT_STYLE: Record<string, string> = {
 
 export function ForecastCard({
   symbol,
-  micCode,
   currency,
 }: {
   symbol: string;
-  micCode: string;
   currency: string;
 }) {
   const [forecast, setForecast] = useState<Forecast | null>(null);
@@ -38,7 +36,7 @@ export function ForecastCard({
     let cancelled = false;
     setLoading(true);
     setError(null);
-    getDailyCloses(symbol, micCode)
+    getDailyCloses(symbol)
       .then((closes) => {
         if (cancelled) return;
         if (closes.length < 5) {
@@ -65,7 +63,7 @@ export function ForecastCard({
     return () => {
       cancelled = true;
     };
-  }, [symbol, micCode, currency]);
+  }, [symbol, currency]);
 
   const chartData = useMemo(() => {
     if (!forecast) return [];

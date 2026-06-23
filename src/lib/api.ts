@@ -1,7 +1,11 @@
 import type { Candle, Instrument, Quote } from "./types";
 
-const BASE = "https://api.twelvedata.com";
-const KEY_STORAGE = "sf.apikey";
+// Yahoo Finance has no public CORS headers, so a static (browser-only) site must
+// reach it through a CORS proxy. allorigins is free and needs no key; it's
+// occasionally flaky, so every call retries, and the proxy is user-overridable.
+const DEFAULT_PROXY = "https://api.allorigins.win/raw?url=";
+const PROXY_STORAGE = "sf.proxy";
+const Y1 = "https://query1.finance.yahoo.com";
 
 export class ApiError extends Error {
   code: number;
@@ -11,142 +15,137 @@ export class ApiError extends Error {
   }
 }
 
-export function getApiKey(): string {
-  if (typeof window === "undefined") return "";
-  return window.localStorage.getItem(KEY_STORAGE) || "";
+export function getProxy(): string {
+  if (typeof window === "undefined") return DEFAULT_PROXY;
+  return window.localStorage.getItem(PROXY_STORAGE) || DEFAULT_PROXY;
 }
 
-export function setApiKey(key: string) {
-  window.localStorage.setItem(KEY_STORAGE, key.trim());
-  window.dispatchEvent(new Event("sf-apikey"));
+export function setProxy(url: string) {
+  const v = url.trim();
+  if (v) window.localStorage.setItem(PROXY_STORAGE, v);
+  else window.localStorage.removeItem(PROXY_STORAGE);
+  window.dispatchEvent(new Event("sf-proxy"));
 }
 
-export function hasApiKey(): boolean {
-  return getApiKey().length > 0;
+export function isDefaultProxy(): boolean {
+  return getProxy() === DEFAULT_PROXY;
 }
 
-async function td<T = any>(
-  path: string,
-  params: Record<string, string | number | undefined>,
-): Promise<T> {
-  const key = getApiKey();
-  if (!key) throw new ApiError("Add your free Twelve Data API key to load data.", 401);
+export { DEFAULT_PROXY };
 
-  const url = new URL(`${BASE}/${path}`);
-  for (const [k, v] of Object.entries(params)) {
-    if (v !== undefined && v !== "") url.searchParams.set(k, String(v));
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function yget<T = any>(path: string, attempts = 3): Promise<T> {
+  const target = `${Y1}${path}`;
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await fetch(getProxy() + encodeURIComponent(target));
+      if (!res.ok) throw new ApiError(`Upstream error (${res.status}).`, res.status);
+      return (await res.json()) as T;
+    } catch (e) {
+      lastErr = e;
+      if (i < attempts - 1) await sleep(500 * (i + 1));
+    }
   }
-  url.searchParams.set("apikey", key);
-
-  let res: Response;
-  try {
-    res = await fetch(url.toString());
-  } catch {
-    throw new ApiError("Network error reaching Twelve Data.", 0);
-  }
-
-  const data = await res.json().catch(() => null);
-  if (data && data.status === "error") {
-    const code = Number(data.code) || res.status;
-    if (code === 401) throw new ApiError("Invalid API key. Check it in Settings.", 401);
-    if (code === 429)
-      throw new ApiError("Rate limit reached (free tier: 8 calls/min). Wait a moment.", 429);
-    throw new ApiError(data.message || "Twelve Data request failed.", code);
-  }
-  if (!res.ok) throw new ApiError(`Request failed (${res.status}).`, res.status);
-  return data as T;
+  throw lastErr instanceof ApiError
+    ? lastErr
+    : new ApiError("Couldn’t reach the data proxy. Try again in a moment.", 0);
 }
 
-/** Fuzzy symbol search — returns matches across global exchanges. */
+/** Fuzzy symbol search across global exchanges (US, EU, …). */
 export async function searchSymbols(query: string): Promise<Instrument[]> {
   const q = query.trim();
   if (!q) return [];
-  const data = await td<{ data: any[] }>("symbol_search", { symbol: q, outputsize: 12 });
-  const seen = new Set<string>();
-  return (data.data || [])
+  const data = await yget<{ quotes?: any[] }>(
+    `/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=12&newsCount=0`,
+  );
+  return (data.quotes || [])
+    .filter((x) => x.symbol && (x.shortname || x.longname))
     .map((x) => ({
       symbol: x.symbol,
-      name: x.instrument_name,
-      exchange: x.exchange,
-      micCode: x.mic_code,
-      country: x.country,
-      currency: x.currency,
-      type: x.instrument_type,
-    }))
-    .filter((x) => {
-      const k = `${x.symbol}|${x.micCode}`;
-      if (seen.has(k) || !x.symbol) return false;
-      seen.add(k);
-      return true;
-    });
+      name: x.shortname || x.longname || x.symbol,
+      exchange: x.exchDisp || x.exchange || "",
+      micCode: "",
+      country: "",
+      currency: undefined,
+      type: x.typeDisp || x.quoteType || "",
+    }));
 }
 
-function num(v: any): number | undefined {
-  const n = parseFloat(v);
-  return isFinite(n) ? n : undefined;
+interface ChartResult {
+  meta: any;
+  timestamp?: number[];
+  indicators?: { quote?: { close?: (number | null)[] }[] };
 }
 
-/** Latest quote for one instrument. */
-export async function getQuote(symbol: string, micCode?: string): Promise<Quote> {
-  const q = await td<any>("quote", { symbol, mic_code: micCode });
+async function chart(symbol: string, range: string, interval: string): Promise<ChartResult> {
+  const data = await yget<{ chart: { result?: ChartResult[]; error?: any } }>(
+    `/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}`,
+  );
+  if (data.chart?.error) {
+    throw new ApiError(data.chart.error.description || "Symbol not found.", 404);
+  }
+  const result = data.chart?.result?.[0];
+  if (!result) throw new ApiError("No data for that symbol.", 404);
+  return result;
+}
+
+/** Latest quote + key stats, derived from the chart endpoint's metadata. */
+export async function getQuote(symbol: string): Promise<Quote> {
+  const { meta } = await chart(symbol, "1d", "1d");
+  const price = meta.regularMarketPrice ?? 0;
+  const prev = meta.previousClose ?? meta.chartPreviousClose ?? price;
+  const change = price - prev;
   return {
-    symbol: q.symbol || symbol,
-    micCode: q.mic_code || micCode || "",
-    name: q.name || symbol,
-    price: num(q.close) ?? 0,
-    currency: q.currency || "USD",
-    change: num(q.change) ?? 0,
-    changePercent: num(q.percent_change) ?? 0,
-    previousClose: num(q.previous_close) ?? num(q.close) ?? 0,
-    exchange: q.exchange || "",
-    dayHigh: num(q.high),
-    dayLow: num(q.low),
-    fiftyTwoWeekHigh: num(q.fifty_two_week?.high),
-    fiftyTwoWeekLow: num(q.fifty_two_week?.low),
-    volume: num(q.volume),
-    isOpen: q.is_market_open,
+    symbol: meta.symbol || symbol,
+    micCode: "",
+    name: meta.longName || meta.shortName || symbol,
+    price,
+    currency: meta.currency || "USD",
+    change,
+    changePercent: prev ? (change / prev) * 100 : 0,
+    previousClose: prev,
+    exchange: meta.fullExchangeName || meta.exchangeName || "",
+    dayHigh: meta.regularMarketDayHigh,
+    dayLow: meta.regularMarketDayLow,
+    fiftyTwoWeekHigh: meta.fiftyTwoWeekHigh,
+    fiftyTwoWeekLow: meta.fiftyTwoWeekLow,
+    volume: meta.regularMarketVolume,
+    isOpen: undefined,
   };
 }
 
 export type Range = "1d" | "1w" | "1mo" | "1y" | "5y";
 
-const RANGE_PARAMS: Record<Range, { interval: string; outputsize: number }> = {
-  "1d": { interval: "5min", outputsize: 78 },
-  "1w": { interval: "30min", outputsize: 80 },
-  "1mo": { interval: "1day", outputsize: 22 },
-  "1y": { interval: "1day", outputsize: 252 },
-  "5y": { interval: "1week", outputsize: 260 },
+const RANGE_PARAMS: Record<Range, { range: string; interval: string }> = {
+  "1d": { range: "1d", interval: "5m" },
+  "1w": { range: "5d", interval: "30m" },
+  "1mo": { range: "1mo", interval: "1d" },
+  "1y": { range: "1y", interval: "1d" },
+  "5y": { range: "5y", interval: "1wk" },
 };
 
-/** Historical candles for charting a given range. */
-export async function getHistory(
-  symbol: string,
-  range: Range,
-  micCode?: string,
-): Promise<Candle[]> {
-  const { interval, outputsize } = RANGE_PARAMS[range];
-  const data = await td<{ values: any[] }>("time_series", {
-    symbol,
-    mic_code: micCode,
-    interval,
-    outputsize,
-  });
-  return (data.values || [])
-    .map((v) => ({ date: new Date(v.datetime).toISOString(), close: num(v.close) ?? 0 }))
-    .filter((c) => c.close > 0)
-    .reverse(); // Twelve Data returns newest-first
+function toCandles(r: ChartResult): Candle[] {
+  const ts = r.timestamp || [];
+  const closes = r.indicators?.quote?.[0]?.close || [];
+  const out: Candle[] = [];
+  for (let i = 0; i < ts.length; i++) {
+    const c = closes[i];
+    if (c != null && isFinite(c)) {
+      out.push({ date: new Date(ts[i] * 1000).toISOString(), close: c });
+    }
+  }
+  return out;
 }
 
-/** Daily closes for the forecast model. */
-export async function getDailyCloses(symbol: string, micCode?: string): Promise<Candle[]> {
-  const data = await td<{ values: any[] }>("time_series", {
-    symbol,
-    mic_code: micCode,
-    interval: "1day",
-    outputsize: 180,
-  });
-  return (data.values || [])
-    .map((v) => ({ date: new Date(v.datetime).toISOString(), close: num(v.close) ?? 0 }))
-    .filter((c) => c.close > 0)
-    .reverse();
+/** Historical candles for charting a given range. */
+export async function getHistory(symbol: string, range: Range): Promise<Candle[]> {
+  const { range: r, interval } = RANGE_PARAMS[range];
+  return toCandles(await chart(symbol, r, interval));
+}
+
+/** ~6 months of daily closes for the forecast model. */
+export async function getDailyCloses(symbol: string): Promise<Candle[]> {
+  return toCandles(await chart(symbol, "6mo", "1d"));
 }

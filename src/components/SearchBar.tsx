@@ -49,8 +49,9 @@ export function SearchBar({ autoFocus = false }: { autoFocus?: boolean }) {
   function go(it: Instrument) {
     setOpen(false);
     setQ("");
-    const params = new URLSearchParams({ mic: it.micCode, name: it.name });
-    navigate(`/stock/${encodeURIComponent(it.symbol)}?${params.toString()}`);
+    navigate(
+      `/stock/${encodeURIComponent(it.symbol)}?name=${encodeURIComponent(it.name)}`,
+    );
   }
 
   function onKeyDown(e: React.KeyboardEvent) {

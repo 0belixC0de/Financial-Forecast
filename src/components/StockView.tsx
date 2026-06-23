@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ApiError, getQuote, hasApiKey } from "../lib/api";
+import { ApiError, getQuote } from "../lib/api";
 import { navigate, useWatchlist } from "../lib/store";
 import type { Quote } from "../lib/types";
 import {
@@ -17,27 +17,22 @@ const POLL_MS = 60_000;
 
 export function StockView({
   symbol,
-  micCode,
   displayName,
 }: {
   symbol: string;
-  micCode: string;
   displayName: string;
 }) {
+  const micCode = "";
   const [quote, setQuote] = useState<Quote | null>(null);
   const [updated, setUpdated] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { has, add, remove } = useWatchlist();
 
   useEffect(() => {
-    if (!hasApiKey()) {
-      setError("Add your Twelve Data API key to load this stock.");
-      return;
-    }
     let cancelled = false;
     async function load() {
       try {
-        const q = await getQuote(symbol, micCode);
+        const q = await getQuote(symbol);
         if (cancelled) return;
         setQuote(q);
         setUpdated(new Date().toISOString());
@@ -52,7 +47,7 @@ export function StockView({
       cancelled = true;
       clearInterval(id);
     };
-  }, [symbol, micCode]);
+  }, [symbol]);
 
   const watching = has(symbol, micCode);
   const name = quote?.name || displayName;
@@ -139,10 +134,10 @@ export function StockView({
         )}
       </div>
 
-      <PriceChart symbol={symbol} micCode={micCode} currency={quote?.currency || "USD"} />
+      <PriceChart symbol={symbol} currency={quote?.currency || "USD"} />
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <ForecastCard symbol={symbol} micCode={micCode} currency={quote?.currency || "USD"} />
+        <ForecastCard symbol={symbol} currency={quote?.currency || "USD"} />
         <AlertsPanel
           symbol={symbol}
           micCode={micCode}

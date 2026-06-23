@@ -3,21 +3,15 @@ import { Watchlist } from "./Watchlist";
 import { navigate } from "../lib/store";
 
 const EXAMPLES = [
-  { symbol: "AAPL", mic: "XNGS", name: "Apple Inc" },
-  { symbol: "NVDA", mic: "XNGS", name: "NVIDIA Corp" },
-  { symbol: "TSLA", mic: "XNGS", name: "Tesla Inc" },
-  { symbol: "LHA", mic: "XETR", name: "Deutsche Lufthansa AG" },
-  { symbol: "BMW", mic: "XETR", name: "Bayerische Motoren Werke AG" },
-  { symbol: "AIR", mic: "XPAR", name: "Airbus SE" },
+  { symbol: "AAPL", name: "Apple" },
+  { symbol: "NVDA", name: "Nvidia" },
+  { symbol: "TSLA", name: "Tesla" },
+  { symbol: "LHA.DE", name: "Lufthansa" },
+  { symbol: "BMW.DE", name: "BMW" },
+  { symbol: "BTC-USD", name: "Bitcoin" },
 ];
 
-export function Home({
-  hasKey,
-  onOpenSettings,
-}: {
-  hasKey: boolean;
-  onOpenSettings: () => void;
-}) {
+export function Home() {
   return (
     <div className="space-y-8">
       <section className="relative overflow-hidden rounded-3xl border border-zinc-200/70 bg-gradient-to-br from-white via-white to-brand-50 p-8 shadow-sm dark:border-white/10 dark:from-zinc-900 dark:via-zinc-900 dark:to-brand-500/5 sm:p-12">
@@ -31,28 +25,23 @@ export function Home({
           signal.
         </p>
         <div className="mt-6 max-w-xl">
-          <SearchBar autoFocus={hasKey} />
+          <SearchBar autoFocus />
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           {EXAMPLES.map((e) => (
             <button
-              key={`${e.symbol}-${e.mic}`}
+              key={e.symbol}
               className="chip"
               onClick={() =>
                 navigate(
-                  `/stock/${encodeURIComponent(e.symbol)}?mic=${e.mic}&name=${encodeURIComponent(e.name)}`,
+                  `/stock/${encodeURIComponent(e.symbol)}?name=${encodeURIComponent(e.name)}`,
                 )
               }
             >
-              {e.name.split(" ")[0]}
+              {e.name}
             </button>
           ))}
         </div>
-        {!hasKey && (
-          <button onClick={onOpenSettings} className="mt-5 text-sm font-medium text-brand-600 underline">
-            Add your free API key to begin →
-          </button>
-        )}
       </section>
 
       <Watchlist />

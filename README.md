@@ -21,23 +21,21 @@ server needed — so it hosts for free on **GitHub Pages**.
 
 ## How data works
 
-Market data comes from **[Twelve Data](https://twelvedata.com)**, which is
-free and works directly from the browser (so it's compatible with static
-hosting). You add your own free API key the first time you open the site —
-it's stored **only in your browser** (localStorage) and never committed to the
-repo or sent anywhere else.
+Market data comes from **Yahoo Finance** — **no API key, no signup, no usage
+limits**. Just open the site and search.
 
-Get a key (≈10 seconds, no credit card): https://twelvedata.com/register
-
-> **Free-tier limits:** 8 requests/min, 800/day. The app polls conservatively,
-> but if you see a "rate limit" message, just wait a moment.
+Because this is a static (browser-only) site with no server, and Yahoo doesn't
+allow direct cross-site browser requests, calls are routed through a free
+**CORS proxy** (allorigins by default). Each request auto-retries to smooth over
+the occasional proxy hiccup. If data ever stops loading, open **⚙️ Settings**
+and point it at a different proxy — no code change needed.
 
 ## Tech
 
 - **Vite + React + TypeScript**
 - **Tailwind CSS** for styling
 - **Recharts** for charts
-- **Twelve Data** REST API (client-side)
+- **Yahoo Finance** (via a CORS proxy, client-side)
 
 ## Run locally
 
@@ -60,8 +58,7 @@ builds and publishes the site on every push to `main`.
 3. That's it. The next push to `main` deploys automatically; your site appears at
    **https://&lt;your-username&gt;.github.io/Financial-Forecast/**
 
-When the page loads, click **API key** (top right) and paste your free Twelve
-Data key.
+No keys or setup needed — just open the URL and start searching.
 
 > **Forked or renamed the repo?** The site's base path is the repo name
 > (`/Financial-Forecast/`). If your repo has a different name, set the
