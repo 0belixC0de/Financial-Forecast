@@ -1,77 +1,69 @@
 # 📈 ShareForecast
 
-A website to **track stocks, build watchlists with price alerts, and view 7-day
-forecasts** that combine a statistical price model with optional AI news
-analysis. Built with Next.js, deployable for free.
+A **static website** to track stocks, set price alerts, and view 7-day price
+forecasts across **US & European markets**. Runs entirely in the browser — no
+server needed — so it hosts for free on **GitHub Pages**.
 
-> ⚠️ **Not financial advice.** Forecasts are statistical estimates and can be
-> wrong. Market data is delayed ~15 minutes.
+> ⚠️ **Not financial advice.** Forecasts are statistical estimates from past
+> prices and can be wrong.
 
 ## Features
 
-- 🔎 **Smart search** — type a company name or symbol (even misspelled) and pick
-  from a live dropdown. Global coverage (US, Europe, Asia, ETFs, crypto…).
+- 🔎 **Smart search** — type a company name or symbol (US, Germany, France, UK,
+  Italy, …) and pick from a live dropdown.
 - 📊 **Interactive charts** — 1D / 1W / 1M / 1Y / 5Y price history.
-- ⭐ **Watchlist** — live quotes + sparklines, saved in your browser.
-- 🔔 **Price alerts** — get an in-app (and optional browser) notification when a
-  stock rises above / falls below your target. Checked every minute.
+- ⭐ **Watchlist** — live quotes, saved in your browser.
+- 🔔 **Price alerts** — in-app (and optional browser) notification when a stock
+  rises above / falls below your target.
 - 🤖 **7-day forecast** — a trend + volatility model projects a price range with
-  a 90% confidence band. When an Anthropic API key is configured, recent news
-  headlines are read by Claude to add a sentiment read and short outlook that
-  nudges the projection.
-- 🌙 **Dark / light mode** toggle.
+  a 90% confidence band, nudged by a transparent **price-momentum** signal.
+- 🌙 **Dark / light** theme toggle.
+
+## How data works
+
+Market data comes from **[Twelve Data](https://twelvedata.com)**, which is
+free and works directly from the browser (so it's compatible with static
+hosting). You add your own free API key the first time you open the site —
+it's stored **only in your browser** (localStorage) and never committed to the
+repo or sent anywhere else.
+
+Get a key (≈10 seconds, no credit card): https://twelvedata.com/register
+
+> **Free-tier limits:** 8 requests/min, 800/day. The app polls conservatively,
+> but if you see a "rate limit" message, just wait a moment.
 
 ## Tech
 
-- **Next.js 14** (App Router) + TypeScript + Tailwind CSS
+- **Vite + React + TypeScript**
+- **Tailwind CSS** for styling
 - **Recharts** for charts
-- **yahoo-finance2** for market data (no API key required)
-- **@anthropic-ai/sdk** for the optional news layer
+- **Twelve Data** REST API (client-side)
 
-## Getting started
+## Run locally
 
 ```bash
 npm install
-cp .env.example .env.local   # optional — only needed for the AI news layer
-npm run dev
+npm run dev      # http://localhost:5173/Financial-Forecast/
+npm test         # forecast-math unit tests
+npm run build    # production build into dist/
 ```
 
-Open http://localhost:3000.
+## Deploy on GitHub Pages (automatic)
 
-### Environment variables
+This repo ships a GitHub Actions workflow (`.github/workflows/deploy.yml`) that
+builds and publishes the site on every push to `main`.
 
-Market data needs **no key**. The only optional variable enables the AI news layer:
+**One-time setup:**
 
-| Variable | Required? | Purpose |
-| --- | --- | --- |
-| `ANTHROPIC_API_KEY` | Optional | Enables Claude-powered news sentiment in forecasts. Without it, forecasts use the statistical model only. Get one at https://console.anthropic.com |
-| `ANTHROPIC_MODEL` | Optional | Override the Claude model. |
+1. Push to GitHub (already done if you're reading this on GitHub).
+2. In your repo: **Settings → Pages → Build and deployment → Source = "GitHub Actions"**.
+3. That's it. The next push to `main` deploys automatically; your site appears at
+   **https://&lt;your-username&gt;.github.io/Financial-Forecast/**
 
-## Tests
+When the page loads, click **API key** (top right) and paste your free Twelve
+Data key.
 
-```bash
-npm test   # runs the forecast-math invariant tests
-```
-
-## Deploying
-
-This is a **server-rendered Next.js app** (it has `/api/*` routes that fetch
-from Yahoo Finance and call Claude on the server). It therefore needs a host
-that can run Node — **GitHub Pages will not work** (Pages only serves static
-files).
-
-**Recommended: Vercel (free).**
-
-1. Push this repo to GitHub.
-2. Go to https://vercel.com, "Add New → Project", and import the repo.
-3. (Optional) add `ANTHROPIC_API_KEY` under Project → Settings → Environment Variables.
-4. Deploy. Vercel auto-detects Next.js — no config needed.
-
-Other Node-capable hosts (Netlify, Render, Railway, Fly.io) also work.
-
-### A note on Yahoo rate limits
-
-Yahoo Finance sometimes rate-limits requests from shared cloud IPs (HTTP 429).
-If you see empty data on a deployed instance, it's usually this — running
-locally or retrying typically resolves it. For heavy use, add a caching layer
-or a paid data provider.
+> **Forked or renamed the repo?** The site's base path is the repo name
+> (`/Financial-Forecast/`). If your repo has a different name, set the
+> `VITE_BASE` env var (e.g. `VITE_BASE=/my-repo/`) — or it's read automatically
+> from `vite.config.ts`.

@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light dark;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-zinc-50 text-zinc-900 antialiased;
+    background-image: radial-gradient(
+      60rem 60rem at 110% -10%,
+      rgba(16, 185, 129, 0.08),
+      transparent 60%
+    );
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+  .dark body {
+    @apply bg-zinc-950 text-zinc-100;
+    background-image: radial-gradient(
+      60rem 60rem at 110% -10%,
+      rgba(16, 185, 129, 0.12),
+      transparent 55%
+    );
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-zinc-200/80 bg-white/80 p-5 shadow-sm backdrop-blur transition-colors dark:border-white/10 dark:bg-white/[0.03];
+  }
+  .btn {
+    @apply inline-flex select-none items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold transition-all active:scale-[0.98];
+  }
+  .btn-primary {
+    @apply btn bg-brand-500 text-white shadow-sm shadow-brand-500/20 hover:bg-brand-600;
+  }
+  .btn-ghost {
+    @apply btn border border-zinc-200 bg-white/60 text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:bg-white/10;
+  }
+  .input {
+    @apply w-full rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-sm outline-none transition-colors placeholder:text-zinc-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 dark:border-white/10 dark:bg-zinc-900;
+  }
+  .chip {
+    @apply rounded-full border border-zinc-200 bg-white/60 px-3 py-1 text-xs font-medium text-zinc-600 transition-colors hover:border-brand-500 hover:text-brand-600 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300;
+  }
+  .pos {
+    @apply text-emerald-600 dark:text-emerald-400;
+  }
+  .neg {
+    @apply text-rose-600 dark:text-rose-400;
+  }
+}
+
+/* Thin custom scrollbars for dropdowns */
+.scroll-thin::-webkit-scrollbar {
+  width: 8px;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  @apply rounded-full bg-zinc-300 dark:bg-zinc-700;
+}
