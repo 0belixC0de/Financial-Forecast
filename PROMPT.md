@@ -20,10 +20,11 @@ combine **mathematical/statistical modeling** with **current worldwide news anal
 - **Deployment target:** GitHub repository → deployable on Vercel with zero config. Keep all secrets in environment variables.
 
 ### Market data source
-- Use **Finnhub** (https://finnhub.io) as the **primary** free financial-data API. Its free tier allows ~60 API calls/min and — crucially — a **real-time WebSocket** for US stock trades, which is ideal for live charts. Use **Yahoo Finance** (`yahoo-finance2` npm package, no key) and/or **Alpha Vantage** as fallbacks for historical candles if a Finnhub endpoint isn't available on the free tier.
-- All API keys must be read from environment variables (`FINNHUB_API_KEY`, `ALPHA_VANTAGE_API_KEY`, etc.). Never hard-code them.
-- Provide a `.env.example` file listing every required variable.
-- **Live chart data:** Subscribe to the Finnhub **WebSocket** (`wss://ws.finnhub.io?token=FINNHUB_API_KEY`) for real-time trade updates and push them onto the chart as they arrive. Show a "last updated" timestamp and a live/paused indicator. Fall back to polling the REST quote endpoint if the socket drops, and degrade gracefully (cache last good data, show a notice) when rate-limited. Note that the WebSocket needs a client-side connection — keep the token handling sensible (it's a publishable browser key on the free tier, but document this).
+- **Use Yahoo Finance as the only data source**, via the **`yahoo-finance2`** npm package (the Node.js equivalent of Python's `yfinance`). **No API key, no signup, no rate-limit dashboard.** Do not integrate Finnhub, Alpha Vantage, or any other provider.
+- It covers both **US and European** markets (e.g. `AAPL`, `BMW.DE`, `AIR.PA`, `VOD.L`) and provides quotes, historical candles, company info, and news — everything this app needs.
+- All Yahoo calls must run **server-side** (Next.js API routes / server actions); the `yahoo-finance2` package is Node-only and shouldn't run in the browser.
+- **Quotes are delayed ~15 minutes — this is fine and expected.** Forecasts target a 7-day horizon, so intraday precision doesn't matter.
+- **"Live" chart data:** Poll the server quote endpoint on a modest interval (e.g. every 30–60s) and update the chart as new data arrives. Show a "last updated" timestamp, a "~15 min delayed" badge, and a live/paused toggle. Degrade gracefully if a request fails (keep last good data, show a notice).
 
 ### Core features
 
@@ -44,9 +45,9 @@ combine **mathematical/statistical modeling** with **current worldwide news anal
 **4. AI Forecast (the headline feature)**
 Generate a forward-looking forecast for a selected ticker by **combining two signals**:
 
-  - **Mathematical/statistical layer:** Compute a quantitative forecast from historical price data. Use a sensible, explainable approach — e.g. moving averages + linear/polynomial trend regression, plus volatility bands, and optionally a simple time-series model (ARIMA-style or Holt-Winters). Output a projected price range (not a single magic number) with a confidence band over a chosen horizon (e.g. 7 / 30 days).
+  - **Mathematical/statistical layer:** Compute a quantitative **7-day forecast** from historical price data (pulled from Yahoo Finance). Use a sensible, explainable approach — e.g. moving averages + linear/polynomial trend regression, plus volatility bands, and optionally a simple time-series model (ARIMA-style or Holt-Winters). Output a projected price range (not a single magic number) with a confidence band over the 7-day horizon.
 
-  - **News/sentiment layer:** Pull recent **worldwide news** relevant to the ticker, its sector, and macro conditions (Finnhub has a free company-news endpoint; Alpha Vantage's NEWS_SENTIMENT or NewsAPI/GNews also work — key in env vars). Feed the headlines/summaries to a **Large Language Model (use Anthropic's Claude — the latest model)** to produce a sentiment read and a short qualitative outlook.
+  - **News/sentiment layer:** Pull recent **worldwide news** relevant to the ticker using Yahoo Finance's news data (available through `yahoo-finance2`). Feed the headlines/summaries to a **Large Language Model (use Anthropic's Claude — the latest model)** to produce a sentiment read and a short qualitative outlook.
 
   - **Combine them:** Blend the statistical projection with the news sentiment into a single, clearly-labeled forecast card that shows:
     - Projected price range + confidence band, overlaid on the chart as a shaded future region.
@@ -63,21 +64,21 @@ Generate a forward-looking forecast for a selected ticker by **combining two sig
 - Handle loading, empty, and error states everywhere. Be resilient to API rate limits and downtime.
 
 ### Code quality & deliverables
-- Clean, typed, well-organized code with clear separation: data layer (API clients), domain logic (forecasting math, alert evaluation), and UI.
-- A thorough `README.md` covering: what it does, the stack, how to get the free API keys, how to set env vars, how to run locally (`npm install && npm run dev`), and how to deploy to Vercel.
-- `.env.example` with every variable.
+- Clean, typed, well-organized code with clear separation: data layer (Yahoo Finance client), domain logic (forecasting math, alert evaluation), and UI.
+- A thorough `README.md` covering: what it does, the stack, how to set the one env var (`ANTHROPIC_API_KEY`), how to run locally (`npm install && npm run dev`), and how to deploy to Vercel. Note that market data needs no key.
+- `.env.example` (only `ANTHROPIC_API_KEY` is required).
 - Basic tests for the forecasting math and alert-evaluation logic.
 - Commit the code so it runs from the GitHub repository.
 
 ### Suggested build order
 1. Project scaffold (Next.js + Tailwind + shadcn/ui) and `.env.example`.
-2. Market-data client (Alpha Vantage / Yahoo) with caching + rate-limit handling.
-3. Ticker search + detail page with live chart.
+2. Yahoo Finance data client (server-side, via `yahoo-finance2`) with caching.
+3. Ticker search + detail page with chart (US + European symbols).
 4. Watchlists (localStorage) + live sparklines.
 5. Alerts (set, persist, evaluate on the polling loop, notify).
-6. Statistical forecast layer (math + confidence bands on chart).
-7. News fetch + Claude-powered sentiment/outlook, blended into the forecast card.
-8. Polish: disclaimers, error/empty states, responsive design, README.
+6. Statistical 7-day forecast layer (math + confidence bands on chart).
+7. News fetch (Yahoo) + Claude-powered sentiment/outlook, blended into the forecast card.
+8. Polish: disclaimers, "~15 min delayed" badge, error/empty states, responsive design, README.
 
 Deliver a working MVP first (steps 1–5), then layer in the forecast (6–8).
 
@@ -86,18 +87,14 @@ Deliver a working MVP first (steps 1–5), then layer in the forecast (6–8).
 ## Notes & options (for you, the requester)
 
 - **Why Next.js?** It runs cleanly from a GitHub repo, deploys to Vercel for free, and lets the
-  Claude/news API calls run server-side so your keys stay secret.
-- **Free API keys you'll need:**
-  - **Finnhub (primary, recommended for live data):** https://finnhub.io — sign up with email, key shown instantly. Free tier: ~60 calls/min + real-time WebSocket for US stocks.
-  - (Optional fallback) Yahoo Finance via the `yahoo-finance2` npm package — no key needed.
-  - (Optional fallback) Alpha Vantage: https://www.alphavantage.co/support/#api-key
-  - A news source — Finnhub's company-news endpoint is free; Alpha Vantage `NEWS_SENTIMENT` or NewsAPI/GNews also work.
-  - Anthropic API key for Claude (the news-analysis layer): https://console.anthropic.com
-- **Rate limits:** Finnhub's free tier (~60 calls/min + WebSocket) is far better for live charts than
-  Alpha Vantage (~25 requests/day). The WebSocket gives genuine real-time updates without burning REST calls.
-- **About getting the key:** I can't create the account or fetch the key for you — it requires signing up
-  with your email and accepting the provider's terms. Finnhub signup takes ~30 seconds; paste the key into
-  your env vars (and into Vercel's environment settings when you deploy).
+  Yahoo Finance + Claude calls run server-side so the only key you have stays secret.
+- **The only key you need:**
+  - **Anthropic API key for Claude** (the news-analysis layer): https://console.anthropic.com
+  - **Market data needs NO key** — `yahoo-finance2` works out of the box.
+- **Data:** Yahoo Finance only. US + European markets, quotes delayed ~15 min, which is fine for a
+  7-day forecast. No rate-limit signup to worry about.
+- **European symbols:** use the exchange suffix, e.g. `BMW.DE` (Frankfurt), `AIR.PA` (Paris),
+  `VOD.L` (London), `ENEL.MI` (Milan).
 - **Want it simpler / no-code?** Paste the **PROMPT** section into v0, Bolt, or Lovable instead.
 - **Want me to actually build it** in this repo (not just write the prompt)? Just say the word and
   I'll scaffold the app on this branch.
