@@ -20,10 +20,10 @@ combine **mathematical/statistical modeling** with **current worldwide news anal
 - **Deployment target:** GitHub repository → deployable on Vercel with zero config. Keep all secrets in environment variables.
 
 ### Market data source
-- Use a **free financial-data API**. Default to **Alpha Vantage** for quotes/historical data, with **Yahoo Finance** (`yahoo-finance2` npm package) as a fallback/alternative.
-- All API keys must be read from environment variables (`ALPHA_VANTAGE_API_KEY`, etc.). Never hard-code them.
+- Use **Finnhub** (https://finnhub.io) as the **primary** free financial-data API. Its free tier allows ~60 API calls/min and — crucially — a **real-time WebSocket** for US stock trades, which is ideal for live charts. Use **Yahoo Finance** (`yahoo-finance2` npm package, no key) and/or **Alpha Vantage** as fallbacks for historical candles if a Finnhub endpoint isn't available on the free tier.
+- All API keys must be read from environment variables (`FINNHUB_API_KEY`, `ALPHA_VANTAGE_API_KEY`, etc.). Never hard-code them.
 - Provide a `.env.example` file listing every required variable.
-- **Live chart data:** Poll the quote endpoint on an interval (respecting free-tier rate limits, e.g. every 15–60s) and update the chart in real time. Show a "last updated" timestamp and a live/paused indicator. If the API rate-limits, degrade gracefully (cache last good data, show a notice).
+- **Live chart data:** Subscribe to the Finnhub **WebSocket** (`wss://ws.finnhub.io?token=FINNHUB_API_KEY`) for real-time trade updates and push them onto the chart as they arrive. Show a "last updated" timestamp and a live/paused indicator. Fall back to polling the REST quote endpoint if the socket drops, and degrade gracefully (cache last good data, show a notice) when rate-limited. Note that the WebSocket needs a client-side connection — keep the token handling sensible (it's a publishable browser key on the free tier, but document this).
 
 ### Core features
 
@@ -46,7 +46,7 @@ Generate a forward-looking forecast for a selected ticker by **combining two sig
 
   - **Mathematical/statistical layer:** Compute a quantitative forecast from historical price data. Use a sensible, explainable approach — e.g. moving averages + linear/polynomial trend regression, plus volatility bands, and optionally a simple time-series model (ARIMA-style or Holt-Winters). Output a projected price range (not a single magic number) with a confidence band over a chosen horizon (e.g. 7 / 30 days).
 
-  - **News/sentiment layer:** Pull recent **worldwide news** relevant to the ticker, its sector, and macro conditions (use a free news API such as the Alpha Vantage NEWS_SENTIMENT endpoint, or NewsAPI/GNews — key in env vars). Feed the headlines/summaries to a **Large Language Model (use Anthropic's Claude — the latest model)** to produce a sentiment read and a short qualitative outlook.
+  - **News/sentiment layer:** Pull recent **worldwide news** relevant to the ticker, its sector, and macro conditions (Finnhub has a free company-news endpoint; Alpha Vantage's NEWS_SENTIMENT or NewsAPI/GNews also work — key in env vars). Feed the headlines/summaries to a **Large Language Model (use Anthropic's Claude — the latest model)** to produce a sentiment read and a short qualitative outlook.
 
   - **Combine them:** Blend the statistical projection with the news sentiment into a single, clearly-labeled forecast card that shows:
     - Projected price range + confidence band, overlaid on the chart as a shaded future region.
@@ -88,13 +88,16 @@ Deliver a working MVP first (steps 1–5), then layer in the forecast (6–8).
 - **Why Next.js?** It runs cleanly from a GitHub repo, deploys to Vercel for free, and lets the
   Claude/news API calls run server-side so your keys stay secret.
 - **Free API keys you'll need:**
-  - Alpha Vantage (free tier): https://www.alphavantage.co/support/#api-key
+  - **Finnhub (primary, recommended for live data):** https://finnhub.io — sign up with email, key shown instantly. Free tier: ~60 calls/min + real-time WebSocket for US stocks.
   - (Optional fallback) Yahoo Finance via the `yahoo-finance2` npm package — no key needed.
-  - A news source — Alpha Vantage's `NEWS_SENTIMENT` endpoint is free and convenient, or NewsAPI/GNews.
+  - (Optional fallback) Alpha Vantage: https://www.alphavantage.co/support/#api-key
+  - A news source — Finnhub's company-news endpoint is free; Alpha Vantage `NEWS_SENTIMENT` or NewsAPI/GNews also work.
   - Anthropic API key for Claude (the news-analysis layer): https://console.anthropic.com
-- **Rate limits:** Free tiers are limited (Alpha Vantage ~25 requests/day on the free plan, 5/min).
-  The prompt tells the builder to cache and poll conservatively — for truly real-time data you'd
-  eventually want a paid plan.
+- **Rate limits:** Finnhub's free tier (~60 calls/min + WebSocket) is far better for live charts than
+  Alpha Vantage (~25 requests/day). The WebSocket gives genuine real-time updates without burning REST calls.
+- **About getting the key:** I can't create the account or fetch the key for you — it requires signing up
+  with your email and accepting the provider's terms. Finnhub signup takes ~30 seconds; paste the key into
+  your env vars (and into Vercel's environment settings when you deploy).
 - **Want it simpler / no-code?** Paste the **PROMPT** section into v0, Bolt, or Lovable instead.
 - **Want me to actually build it** in this repo (not just write the prompt)? Just say the word and
   I'll scaffold the app on this branch.
