@@ -23,6 +23,15 @@ yarn-error.log*
 .env
 .env*.local
 
+# streamlit secrets
+.streamlit/secrets.toml
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
